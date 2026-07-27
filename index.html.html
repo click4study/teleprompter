@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Browser Teleprompter</title>
+  <style>
+    :root {
+      --bg-color: #000000;
+      --text-color: #ffffff;
+      --guide-color: rgba(255, 255, 0, 0.25);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      user-select: none;
+    }
+
+    /* Top Control Bar */
+    .controls-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      background: #18181b;
+      color: #ffffff;
+      padding: 10px 16px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      z-index: 1000;
+      border-bottom: 1px solid #27272a;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .segmented-control {
+      display: flex;
+      background: #27272a;
+      border-radius: 6px;
+      padding: 2px;
+    }
+
+    .segmented-control button {
+      border-radius: 4px;
+      padding: 5px 10px;
+    }
+
+    button {
+      background: #3f3f46;
+      color: #ffffff;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background: #52525b;
+    }
+
+    button.active {
+      background: #2563eb;
+    }
+
+    input[type="range"] {
+      width: 80px;
+      cursor: pointer;
+    }
+
+    /* Reading Guide Bar */
+    .reading-guide {
+      position: fixed;
+      top: 45%;
+      left: 0;
+      width: 100%;
+      height: 80px;
+      background-color: var(--guide-color);
+      pointer-events: none;
+      z-index: 100;
+      border-top: 2px dashed rgba(255, 255, 255, 0.4);
+      border-bottom: 2px dashed rgba(255, 255, 255, 0.4);
+    }
+
+    /* Prompter Text Container */
+    .prompter-wrapper {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      overflow-y: scroll;
+      padding: 50vh 10% 80vh 10%;
+      scroll-behavior: auto;
+      transform-origin: center center;
+    }
+
+    /* Flip Controls via CSS Transforms */
+    .flip-h {
+      transform: scaleX(-1);
+    }
+
+    .flip-v {
+      transform: scaleY(-1);
+    }
+
+    .flip-hv {
+      transform: scale(-1, -1);
+    }
+
+    #script-content {
+      outline: none;
+      line-height: 1.5;
+      font-size: 48px;
+      font-weight: 600;
+      text-align: center;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    #script-content:empty:before {
+      content: "Type or paste your script here...";
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Controls -->
+  <div class="controls-bar">
+    <button id="btn-toggle">Play (Space)</button>
+
+    <!-- Direction Selector -->
+    <div class="control-group">
+      <span style="margin-right: 2px;">Direction:</span>
+      <div class="segmented-control">
+        <button id="btn-dir-down" class="active">Forward ▼</button>
+        <button id="btn-dir-up">Backward ▲</button>
+      </div>
+    </div>
+
+    <button id="btn-reset">Reset</button>
+
+    <!-- Speed Controls -->
+    <div class="control-group">
+      <label for="speed-range">Speed:</label>
+      <input type="range" id="speed-range" min="1" max="10" value="3">
+      <span id="speed-val">3</span>
+    </div>
+
+    <!-- Font Size Controls -->
+    <div class="control-group">
+      <label for="font-range">Size:</label>
+      <input type="range" id="font-range" min="18" max="120" value="48">
+      <span id="font-val">48px</span>
+    </div>
+
+    <button id="btn-mirror">Mirror Horizontally</button>
+    <button id="btn-flip-v">Flip Vertically</button>
+  </div>
+
+  <!-- Reading Guide -->
+  <div class="reading-guide" id="guide"></div>
+
+  <!-- Prompter Content -->
+  <div class="prompter-wrapper" id="prompter-wrapper">
+    <div id="script-content" contenteditable="true" spellcheck="false">Welcome to your updated web teleprompter!
+
+You can now toggle between Forward ▼ and Backward ▲ scrolling modes using the direction buttons above or your Up/Down arrow keys.
+
+Paste your script, adjust settings, and press Spacebar to start scrolling.</div>
+  </div>
+
+  <script>
+    const wrapper = document.getElementById('prompter-wrapper');
+    const scriptContent = document.getElementById('script-content');
+    const btnToggle = document.getElementById('btn-toggle');
+    const btnReset = document.getElementById('btn-reset');
+    const btnDirDown = document.getElementById('btn-dir-down');
+    const btnDirUp = document.getElementById('btn-dir-up');
+    const speedRange = document.getElementById('speed-range');
+    const speedVal = document.getElementById('speed-val');
+    const fontRange = document.getElementById('font-range');
+    const fontVal = document.getElementById('font-val');
+    const btnMirror = document.getElementById('btn-mirror');
+    const btnFlipV = document.getElementById('btn-flip-v');
+
+    let isPlaying = false;
+    let scrollDirection = 1; // 1 for down (forward), -1 for up (backward)
+    let scrollSpeed = 3;
+    let scrollAccumulator = 0;
+    let animationFrameId = null;
+
+    let isFlippedH = false;
+    let isFlippedV = false;
+
+    // Toggle Scrolling
+    function togglePlay() {
+      isPlaying = !isPlaying;
+      btnToggle.textContent = isPlaying ? "Pause (Space)" : "Play (Space)";
+      btnToggle.classList.toggle('active', isPlaying);
+      if (isPlaying) {
+        animationFrameId = requestAnimationFrame(autoScroll);
+      } else if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+    }
+
+    // Set Scroll Direction
+    function setDirection(dir) {
+      scrollDirection = dir;
+      btnDirDown.classList.toggle('active', dir === 1);
+      btnDirUp.classList.toggle('active', dir === -1);
+    }
+
+    // Scroll Logic
+    function autoScroll() {
+      if (!isPlaying) return;
+
+      scrollAccumulator += (scrollSpeed * 0.4);
+      if (scrollAccumulator >= 1) {
+        const pxToScroll = Math.floor(scrollAccumulator) * scrollDirection;
+        wrapper.scrollTop += pxToScroll;
+        scrollAccumulator %= 1;
+      }
+
+      animationFrameId = requestAnimationFrame(autoScroll);
+    }
+
+    // Event Listeners
+    btnToggle.addEventListener('click', togglePlay);
+
+    btnDirDown.addEventListener('click', () => setDirection(1));
+    btnDirUp.addEventListener('click', () => setDirection(-1));
+
+    btnReset.addEventListener('click', () => {
+      if (isPlaying) togglePlay();
+      wrapper.scrollTop = 0;
+    });
+
+    speedRange.addEventListener('input', (e) => {
+      scrollSpeed = parseFloat(e.target.value);
+      speedVal.textContent = scrollSpeed;
+    });
+
+    fontRange.addEventListener('input', (e) => {
+      const size = e.target.value;
+      scriptContent.style.fontSize = size + 'px';
+      fontVal.textContent = size + 'px';
+    });
+
+    // Mirroring & Flipping
+    function updateTransforms() {
+      wrapper.className = 'prompter-wrapper';
+      if (isFlippedH && isFlippedV) {
+        wrapper.classList.add('flip-hv');
+      } else if (isFlippedH) {
+        wrapper.classList.add('flip-h');
+      } else if (isFlippedV) {
+        wrapper.classList.add('flip-v');
+      }
+    }
+
+    btnMirror.addEventListener('click', () => {
+      isFlippedH = !isFlippedH;
+      btnMirror.classList.toggle('active', isFlippedH);
+      updateTransforms();
+    });
+
+    btnFlipV.addEventListener('click', () => {
+      isFlippedV = !isFlippedV;
+      btnFlipV.classList.toggle('active', isFlippedV);
+      updateTransforms();
+    });
+
+    // Keyboard Controls
+    window.addEventListener('keydown', (e) => {
+      if (document.activeElement === scriptContent) return; // Ignore hotkeys while typing script
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        togglePlay();
+      } else if (e.code === 'ArrowDown') {
+        e.preventDefault();
+        setDirection(1);
+      } else if (e.code === 'ArrowUp') {
+        e.preventDefault();
+        setDirection(-1);
+      } else if (e.code === 'ArrowRight') {
+        e.preventDefault();
+        scrollSpeed = Math.min(10, scrollSpeed + 1);
+        speedRange.value = scrollSpeed;
+        speedVal.textContent = scrollSpeed;
+      } else if (e.code === 'ArrowLeft') {
+        e.preventDefault();
+        scrollSpeed = Math.max(1, scrollSpeed - 1);
+        speedRange.value = scrollSpeed;
+        speedVal.textContent = scrollSpeed;
+      }
+    });
+  </script>
+</body>
+</html>
