@@ -1,323 +1,376 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Browser Teleprompter</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>iPad Web Teleprompter</title>
   <style>
-    :root {
-      --bg-color: #000000;
-      --text-color: #ffffff;
-      --guide-color: rgba(255, 255, 0, 0.25);
-    }
-
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-    }
-
-    body {
-      background-color: var(--bg-color);
-      color: var(--text-color);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      overflow: hidden;
-      height: 100vh;
-      width: 100vw;
+      -webkit-tap-highlight-color: transparent;
       user-select: none;
     }
-
-    /* Top Control Bar */
-    .controls-bar {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      background: #18181b;
+    
+    html, body {
+      background-color: #0d0d0d;
       color: #ffffff;
-      padding: 10px 16px;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 12px;
-      z-index: 1000;
-      border-bottom: 1px solid #27272a;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
     }
+
+    /* Floating Controls */
+    #controls {
+      position: fixed;
+      top: env(safe-area-inset-top, 12px);
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      background: rgba(25, 25, 25, 0.95);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid #333;
+      padding: 10px 16px;
+      border-radius: 16px;
+      display: none;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+      transition: opacity 0.3s ease;
+      max-width: 95vw;
+    }
+
+    #controls.hidden { opacity: 0.2; }
+    #controls:hover, #controls:active { opacity: 1; }
 
     .control-group {
       display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 13px;
-      font-weight: 600;
+      flex-direction: column;
+      gap: 2px;
+      font-size: 11px;
+      color: #aaa;
+      text-align: center;
     }
 
-    .segmented-control {
-      display: flex;
-      background: #27272a;
-      border-radius: 6px;
-      padding: 2px;
-    }
-
-    .segmented-control button {
-      border-radius: 4px;
-      padding: 5px 10px;
-    }
+    .button-group { display: flex; gap: 6px; }
 
     button {
-      background: #3f3f46;
-      color: #ffffff;
-      border: none;
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-weight: 600;
-      font-size: 13px;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-
-    button:hover {
-      background: #52525b;
-    }
-
-    button.active {
       background: #2563eb;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+      touch-action: manipulation;
     }
+    button:active { opacity: 0.8; transform: scale(0.98); }
+    button.active { background: #059669; }
+    button.secondary { background: #374151; }
 
     input[type="range"] {
-      width: 80px;
       cursor: pointer;
+      accent-color: #2563eb;
+      height: 28px;
     }
 
-    /* Reading Guide Bar */
-    .reading-guide {
-      position: fixed;
-      top: 45%;
-      left: 0;
-      width: 100%;
-      height: 80px;
-      background-color: var(--guide-color);
-      pointer-events: none;
-      z-index: 100;
-      border-top: 2px dashed rgba(255, 255, 255, 0.4);
-      border-bottom: 2px dashed rgba(255, 255, 255, 0.4);
-    }
-
-    /* Prompter Text Container */
-    .prompter-wrapper {
+    /* Editor View */
+    #editor-view {
       position: absolute;
-      top: 0;
-      left: 0;
+      top: 0; left: 0; right: 0; bottom: 0;
+      display: flex;
+      flex-direction: column;
+      padding: env(safe-area-inset-top, 12px) 16px env(safe-area-inset-bottom, 12px) 16px;
+      gap: 12px;
+      z-index: 10;
+      background: #0d0d0d;
+    }
+
+    .editor-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 0;
+    }
+
+    .editor-title { font-size: 18px; font-weight: 700; color: #f3f4f6; }
+
+    .editor-container {
+      position: relative;
+      flex: 1;
+      width: 100%;
+      display: flex;
+    }
+
+    textarea {
       width: 100%;
       height: 100%;
-      overflow-y: scroll;
-      padding: 50vh 10% 80vh 10%;
-      scroll-behavior: auto;
-      transform-origin: center center;
-    }
-
-    /* Flip Controls via CSS Transforms */
-    .flip-h {
-      transform: scaleX(-1);
-    }
-
-    .flip-v {
-      transform: scaleY(-1);
-    }
-
-    .flip-hv {
-      transform: scale(-1, -1);
-    }
-
-    #script-content {
+      background: #18181b;
+      color: #f4f4f5;
+      border: 1px solid #3f3f46;
+      border-radius: 12px;
+      padding: 20px;
+      font-size: 18px;
+      line-height: 1.6;
+      resize: none;
       outline: none;
-      line-height: 1.5;
-      font-size: 48px;
-      font-weight: 600;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
+    /* Prompter Window (Safari Scroll Fix) */
+    #prompter-wrapper {
+      display: none;
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      overflow-y: scroll;
+      -webkit-overflow-scrolling: touch;
+      z-index: 1;
+    }
+
+    #prompter-content {
+      padding: 40vh 8vw;
+      width: 100%;
+      min-height: 100%;
+    }
+
+    /* Inversion Transforms */
+    .flip-h { transform: scaleX(-1); }
+    .flip-v { transform: scaleY(-1); }
+    .flip-hv { transform: scale(-1, -1); }
+
+    #script-text {
       text-align: center;
+      line-height: 1.5;
+      font-weight: 600;
       white-space: pre-wrap;
       word-wrap: break-word;
     }
 
-    #script-content:empty:before {
-      content: "Type or paste your script here...";
-      color: #666;
+    /* Cue Line */
+    #cue-marker {
+      display: none;
+      position: fixed;
+      top: 50%; left: 0;
+      width: 100%; height: 2px;
+      background: rgba(239, 68, 68, 0.4);
+      pointer-events: none;
+      z-index: 500;
     }
   </style>
 </head>
 <body>
 
-  <!-- Controls -->
-  <div class="controls-bar">
-    <button id="btn-toggle">Play (Space)</button>
-
-    <!-- Direction Selector -->
-    <div class="control-group">
-      <span style="margin-right: 2px;">Direction:</span>
-      <div class="segmented-control">
-        <button id="btn-dir-down" class="active">Forward ▼</button>
-        <button id="btn-dir-up">Backward ▲</button>
-      </div>
+  <!-- Controls Panel -->
+  <div id="controls">
+    <button id="toggle-btn" onclick="togglePrompter()">Edit Script</button>
+    <button id="play-pause-btn" class="active" onclick="togglePlayPause()">Pause</button>
+    
+    <div class="button-group">
+      <button class="secondary" onclick="jumpScroll(-250)">⏮ Back</button>
+      <button class="secondary" onclick="jumpScroll(250)">Next ⏭</button>
     </div>
 
-    <button id="btn-reset">Reset</button>
+    <button id="dir-btn" class="secondary" onclick="toggleDirection()">Dir: Down</button>
 
-    <!-- Speed Controls -->
     <div class="control-group">
-      <label for="speed-range">Speed:</label>
-      <input type="range" id="speed-range" min="1" max="10" value="3">
-      <span id="speed-val">3</span>
+      <label>Speed (<span id="speed-val">3</span>)</label>
+      <input type="range" id="speed" min="1" max="10" value="3" oninput="updateSpeed(this.value)">
     </div>
 
-    <!-- Font Size Controls -->
     <div class="control-group">
-      <label for="font-range">Size:</label>
-      <input type="range" id="font-range" min="18" max="120" value="48">
-      <span id="font-val">48px</span>
+      <label>Font (<span id="font-val">48</span>px)</label>
+      <input type="range" id="fontSize" min="20" max="120" value="48" oninput="updateFontSize(this.value)">
     </div>
 
-    <button id="btn-mirror">Mirror Horizontally</button>
-    <button id="btn-flip-v">Flip Vertically</button>
+    <button id="flip-h-btn" onclick="toggleFlip('h')">Flip L-R</button>
+    <button id="flip-v-btn" onclick="toggleFlip('v')">Flip U-D</button>
   </div>
 
-  <!-- Reading Guide -->
-  <div class="reading-guide" id="guide"></div>
+  <div id="cue-marker"></div>
 
-  <!-- Prompter Content -->
-  <div class="prompter-wrapper" id="prompter-wrapper">
-    <div id="script-content" contenteditable="true" spellcheck="false">Welcome to your updated web teleprompter!
+  <!-- Script Input View -->
+  <div id="editor-view">
+    <div class="editor-header">
+      <div class="editor-title">Teleprompter Script Editor</div>
+      <button onclick="togglePrompter()" style="background: #16a34a; font-size: 16px; padding: 12px 24px;">▶ Launch Prompter</button>
+    </div>
+    
+    <div class="editor-container">
+      <textarea id="script-input" placeholder="Paste or type your script here..."></textarea>
+    </div>
+  </div>
 
-You can now toggle between Forward ▼ and Backward ▲ scrolling modes using the direction buttons above or your Up/Down arrow keys.
-
-Paste your script, adjust settings, and press Spacebar to start scrolling.</div>
+  <!-- Prompter View -->
+  <div id="prompter-wrapper">
+    <div id="prompter-content">
+      <div id="script-text"></div>
+    </div>
   </div>
 
   <script>
-    const wrapper = document.getElementById('prompter-wrapper');
-    const scriptContent = document.getElementById('script-content');
-    const btnToggle = document.getElementById('btn-toggle');
-    const btnReset = document.getElementById('btn-reset');
-    const btnDirDown = document.getElementById('btn-dir-down');
-    const btnDirUp = document.getElementById('btn-dir-up');
-    const speedRange = document.getElementById('speed-range');
-    const speedVal = document.getElementById('speed-val');
-    const fontRange = document.getElementById('font-range');
-    const fontVal = document.getElementById('font-val');
-    const btnMirror = document.getElementById('btn-mirror');
-    const btnFlipV = document.getElementById('btn-flip-v');
-
+    let isRunning = false;
     let isPlaying = false;
-    let scrollDirection = 1; // 1 for down (forward), -1 for up (backward)
+    let flipH = false;
+    let flipV = false;
+    let isReverse = false;
     let scrollSpeed = 3;
-    let scrollAccumulator = 0;
-    let animationFrameId = null;
+    let fontSize = 48;
+    let animFrame = null;
 
-    let isFlippedH = false;
-    let isFlippedV = false;
+    const editorView = document.getElementById('editor-view');
+    const prompterWrapper = document.getElementById('prompter-wrapper');
+    const prompterContent = document.getElementById('prompter-content');
+    const scriptInput = document.getElementById('script-input');
+    const scriptText = document.getElementById('script-text');
+    const playPauseBtn = document.getElementById('play-pause-btn');
+    const flipHBtn = document.getElementById('flip-h-btn');
+    const flipVBtn = document.getElementById('flip-v-btn');
+    const dirBtn = document.getElementById('dir-btn');
+    const controls = document.getElementById('controls');
+    const cueMarker = document.getElementById('cue-marker');
 
-    // Toggle Scrolling
-    function togglePlay() {
-      isPlaying = !isPlaying;
-      btnToggle.textContent = isPlaying ? "Pause (Space)" : "Play (Space)";
-      btnToggle.classList.toggle('active', isPlaying);
-      if (isPlaying) {
-        animationFrameId = requestAnimationFrame(autoScroll);
-      } else if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
+    function updateSpeed(val) {
+      scrollSpeed = parseInt(val);
+      document.getElementById('speed-val').innerText = val;
+    }
+
+    function updateFontSize(val) {
+      fontSize = val;
+      document.getElementById('font-val').innerText = val;
+      scriptText.style.fontSize = val + 'px';
+    }
+
+    function jumpScroll(amount) {
+      const distance = flipV ? -amount : amount;
+      prompterWrapper.scrollTop += distance;
+    }
+
+    function toggleDirection() {
+      isReverse = !isReverse;
+      dirBtn.innerText = isReverse ? "Dir: Up" : "Dir: Down";
+    }
+
+    function toggleFlip(type) {
+      if (type === 'h') flipH = !flipH;
+      if (type === 'v') flipV = !flipV;
+
+      flipHBtn.classList.toggle('active', flipH);
+      flipVBtn.classList.toggle('active', flipV);
+
+      prompterContent.className = '';
+      if (flipH && flipV) prompterContent.classList.add('flip-hv');
+      else if (flipH) prompterContent.classList.add('flip-h');
+      else if (flipV) prompterContent.classList.add('flip-v');
+    }
+
+    function togglePrompter() {
+      isRunning = !isRunning;
+      if (isRunning) {
+        // Unfocus text areas
+        scriptInput.blur();
+        if (document.activeElement) document.activeElement.blur();
+
+        // Load content
+        scriptText.innerText = scriptInput.value || "Please paste a script first...";
+        scriptText.style.fontSize = fontSize + 'px';
+
+        // Switch display state
+        editorView.style.display = 'none';
+        prompterWrapper.style.display = 'block';
+        cueMarker.style.display = 'block';
+        controls.style.display = 'flex';
+        controls.classList.add('hidden');
+        
+        // Reset scroll position directly on wrapper
+        prompterWrapper.scrollTop = 0;
+        play();
+      } else {
+        pause();
+        editorView.style.display = 'flex';
+        prompterWrapper.style.display = 'none';
+        cueMarker.style.display = 'none';
+        controls.style.display = 'none';
+        controls.classList.remove('hidden');
       }
     }
 
-    // Set Scroll Direction
-    function setDirection(dir) {
-      scrollDirection = dir;
-      btnDirDown.classList.toggle('active', dir === 1);
-      btnDirUp.classList.toggle('active', dir === -1);
-    }
-
-    // Scroll Logic
-    function autoScroll() {
+    // High performance RAF Loop for Safari iOS
+    function scrollStep() {
       if (!isPlaying) return;
 
-      scrollAccumulator += (scrollSpeed * 0.4);
-      if (scrollAccumulator >= 1) {
-        const pxToScroll = Math.floor(scrollAccumulator) * scrollDirection;
-        wrapper.scrollTop += pxToScroll;
-        scrollAccumulator %= 1;
-      }
+      let delta = scrollSpeed * 0.5;
+      if (isReverse) delta = -delta;
+      if (flipV) delta = -delta;
 
-      animationFrameId = requestAnimationFrame(autoScroll);
+      prompterWrapper.scrollTop += delta;
+      animFrame = requestAnimationFrame(scrollStep);
     }
 
-    // Event Listeners
-    btnToggle.addEventListener('click', togglePlay);
-
-    btnDirDown.addEventListener('click', () => setDirection(1));
-    btnDirUp.addEventListener('click', () => setDirection(-1));
-
-    btnReset.addEventListener('click', () => {
-      if (isPlaying) togglePlay();
-      wrapper.scrollTop = 0;
-    });
-
-    speedRange.addEventListener('input', (e) => {
-      scrollSpeed = parseFloat(e.target.value);
-      speedVal.textContent = scrollSpeed;
-    });
-
-    fontRange.addEventListener('input', (e) => {
-      const size = e.target.value;
-      scriptContent.style.fontSize = size + 'px';
-      fontVal.textContent = size + 'px';
-    });
-
-    // Mirroring & Flipping
-    function updateTransforms() {
-      wrapper.className = 'prompter-wrapper';
-      if (isFlippedH && isFlippedV) {
-        wrapper.classList.add('flip-hv');
-      } else if (isFlippedH) {
-        wrapper.classList.add('flip-h');
-      } else if (isFlippedV) {
-        wrapper.classList.add('flip-v');
-      }
+    function play() {
+      if (isPlaying) return;
+      isPlaying = true;
+      playPauseBtn.innerText = "Pause";
+      playPauseBtn.classList.add('active');
+      animFrame = requestAnimationFrame(scrollStep);
     }
 
-    btnMirror.addEventListener('click', () => {
-      isFlippedH = !isFlippedH;
-      btnMirror.classList.toggle('active', isFlippedH);
-      updateTransforms();
+    function pause() {
+      isPlaying = false;
+      playPauseBtn.innerText = "Play";
+      playPauseBtn.classList.remove('active');
+      if (animFrame) cancelAnimationFrame(animFrame);
+    }
+
+    function togglePlayPause() {
+      if (!isRunning) return;
+      if (isPlaying) pause();
+      else play();
+    }
+
+    // Tap Anywhere on Screen to Play/Pause
+    prompterWrapper.addEventListener('click', (e) => {
+      if (e.target.closest('#controls')) return;
+      togglePlayPause();
     });
 
-    btnFlipV.addEventListener('click', () => {
-      isFlippedV = !isFlippedV;
-      btnFlipV.classList.toggle('active', isFlippedV);
-      updateTransforms();
-    });
+    // Bluetooth Remote Keys
+    document.addEventListener('keydown', (e) => {
+      if (!isRunning) return;
 
-    // Keyboard Controls
-    window.addEventListener('keydown', (e) => {
-      if (document.activeElement === scriptContent) return; // Ignore hotkeys while typing script
-
-      if (e.code === 'Space') {
-        e.preventDefault();
-        togglePlay();
-      } else if (e.code === 'ArrowDown') {
-        e.preventDefault();
-        setDirection(1);
-      } else if (e.code === 'ArrowUp') {
-        e.preventDefault();
-        setDirection(-1);
-      } else if (e.code === 'ArrowRight') {
-        e.preventDefault();
-        scrollSpeed = Math.min(10, scrollSpeed + 1);
-        speedRange.value = scrollSpeed;
-        speedVal.textContent = scrollSpeed;
-      } else if (e.code === 'ArrowLeft') {
-        e.preventDefault();
-        scrollSpeed = Math.max(1, scrollSpeed - 1);
-        speedRange.value = scrollSpeed;
-        speedVal.textContent = scrollSpeed;
+      switch(e.key) {
+        case ' ':
+        case 'MediaPlayPause':
+        case 'Enter':
+          e.preventDefault();
+          togglePlayPause();
+          break;
+        case 'ArrowRight':
+        case 'PageDown':
+          e.preventDefault();
+          jumpScroll(250);
+          break;
+        case 'ArrowLeft':
+        case 'PageUp':
+          e.preventDefault();
+          jumpScroll(-250);
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          updateSpeed(Math.min(10, scrollSpeed + 1));
+          document.getElementById('speed').value = scrollSpeed;
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          updateSpeed(Math.max(1, scrollSpeed - 1));
+          document.getElementById('speed').value = scrollSpeed;
+          break;
       }
     });
   </script>
